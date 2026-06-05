@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealOrReel - AI Video Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080b10;
+            --accent-cyan: #00f5d4;
+            --accent-glow: rgba(0, 245, 212, 0.3);
+            --red-alert: #ff3366;
+            --orange-alert: #ff9900;
+            --yellow-alert: #ffcc00;
+            --green-alert: #33cc66;
+            --text-main: #e0e6ed;
+            --text-muted: #8b9bb4;
+            --panel-bg: rgba(15, 20, 30, 0.8);
+            --border-color: rgba(0, 245, 212, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'IBM Plex Mono', monospace;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Scanline overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 10;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 4rem;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin-bottom: 0.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Glitch Effect */
+        h1::before, h1::after {
+            content: 'RealOrReel';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+        }
+        h1::before {
+            left: 2px;
+            text-shadow: -2px 0 red;
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+            z-index: -1;
+        }
+        h1::after {
+            left: -2px;
+            text-shadow: -2px 0 var(--accent-cyan);
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim 2.5s infinite linear alternate-reverse;
+            z-index: -2;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(72px, 9999px, 83px, 0); }
+            20% { clip: rect(4px, 9999px, 82px, 0); }
+            40% { clip: rect(54px, 9999px, 90px, 0); }
+            60% { clip: rect(24px, 9999px, 12px, 0); }
+            80% { clip: rect(100px, 9999px, 20px, 0); }
+            100% { clip: rect(45px, 9999px, 55px, 0); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(65px, 9999px, 100px, 0); }
+            20% { clip: rect(12px, 9999px, 45px, 0); }
+            40% { clip: rect(88px, 9999px, 12px, 0); }
+            60% { clip: rect(34px, 9999px, 89px, 0); }
+            80% { clip: rect(5px, 9999px, 77px, 0); }
+            100% { clip: rect(99px, 9999px, 34px, 0); }
+        }
+
+        .tagline {
+            color: var(--accent-cyan);
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .input-area {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 245, 212, 0.05);
+            backdrop-filter: blur(10px);
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--text-muted);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            border-radius: 4px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        button {
+            background: transparent;
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            padding: 0 2rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 245, 212, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        button:hover {
+            background: rgba(0, 245, 212, 0.1);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        .platforms {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            align-items: center;
+        }
+
+        /* Loading State */
+        .loading-state {
+            display: none;
+            text-align: center;
+            padding: 3rem 0;
+        }
+
+        .radar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-cyan);
+            margin: 0 auto 2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .radar::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 50%;
+            background: linear-gradient(45deg, var(--accent-cyan), transparent);
+            transform-origin: top left;
+            animation: radar-spin 2s linear infinite;
+        }
+
+        @keyframes radar-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-text {
+            color: var(--accent-cyan);
+            font-size: 1.2rem;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Results Panel */
+        .results-panel {
+            display: none;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            animation: fade-in 0.5s ease-out;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .verdict-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .verdict-badge {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            padding: 0.5rem 2rem;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 2px solid;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .verdict-ai { color: var(--red-alert); border-color: var(--red-alert); box-shadow: 0 0 20px rgba(255, 51, 102, 0.3), inset 0 0 20px rgba(255, 51, 102, 0.3); }
+        .verdict-likely-ai { color: var(--orange-alert); border-color: var(--orange-alert); box-shadow: 0 0 20px rgba(255, 153, 0, 0.3), inset 0 0 20px rgba(255, 153, 0, 0.3); }
+        .verdict-uncertain { color: var(--yellow-alert); border-color: var(--yellow-alert); box-shadow: 0 0 20px rgba(255, 204, 0, 0.3), inset 0 0 20px rgba(255, 204, 0, 0.3); }
+        .verdict-real { color: var(--green-alert); border-color: var(--green-alert); box-shadow: 0 0 20px rgba(51, 204, 102, 0.3), inset 0 0 20px rgba(51, 204, 102, 0.3); }
+
+        .confidence-container {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .confidence-ring {
+            width: 100px;
+            height: 100px;
+        }
+
+        .confidence-text {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .confidence-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .summary {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--accent-cyan);
+            padding-left: 1rem;
+        }
+
+        .findings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .findings h3 {
+            font-family: 'Syne', sans-serif;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+        }
+
+        .flags h3 { color: var(--red-alert); }
+        .signs h3 { color: var(--green-alert); }
+
+        ul { list-style: none; }
+        li {
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+        }
+
+        .flags li::before {
+            content: '⚠';
+            color: var(--red-alert);
+        }
+
+        .signs li::before {
+            content: '✓';
+            color: var(--green-alert);
+        }
+
+        .frame-strip-container {
+            margin-bottom: 2rem;
+        }
+        
+        .frame-strip-container h3 {
+            font-family: 'Syne', sans-serif;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .frame-strip {
+            display: flex;
+            overflow-x: auto;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-cyan) rgba(0,0,0,0.5);
+        }
+
+        .frame-strip::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .frame-strip::-webkit-scrollbar-thumb {
+            background-color: var(--accent-cyan);
+            border-radius: 10px;
+        }
+
+        .frame-item {
+            position: relative;
+            flex: 0 0 auto;
+            width: 180px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .frame-item:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .frame-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .frame-score {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.8);
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .error-message {
+            color: var(--red-alert);
+            margin-top: 1rem;
+            text-align: center;
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: auto;
+        }
+
+        @media (max-width: 768px) {
+            .input-group { flex-direction: column; }
+            button { padding: 1rem; }
+            .verdict-header { flex-direction: column; gap: 2rem; text-align: center; }
+            .findings { grid-template-columns: 1fr; }
+            h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>RealOrReel</h1>
+            <div class="tagline">Paste a link. Know the truth.</div>
+        </header>
+
+        <div class="input-area" id="input-area">
+            <div class="input-group">
+                <input type="text" id="video-url" placeholder="Paste Instagram / TikTok / YouTube Shorts link..." autocomplete="off">
+                <button id="analyze-btn">Analyze</button>
+            </div>
+            <div class="platforms">
+                <span>Supported: Instagram Reels, TikTok, YouTube Shorts, X/Twitter</span>
+            </div>
+            <div class="error-message" id="error-message"></div>
+        </div>
+
+        <div class="loading-state" id="loading-state">
+            <div class="radar"></div>
+            <div class="status-text" id="status-text">Initializing Forensics Engine...</div>
+        </div>
+
+        <div class="results-panel" id="results-panel">
+            <div class="verdict-header">
+                <div class="verdict-badge" id="verdict-badge">Verdict</div>
+                
+                <div class="confidence-container">
+                    <div class="confidence-info">
+                        <div class="confidence-text"><span id="confidence-val">0</span>%</div>
+                        <div class="confidence-label">AI Probability</div>
+                    </div>
+                    <!-- SVG Circle for progress -->
+                    <svg class="confidence-ring" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"></circle>
+                        <circle id="confidence-circle" cx="50" cy="50" r="45" fill="none" stroke="var(--accent-cyan)" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="283" transform="rotate(-90 50 50)" style="transition: stroke-dashoffset 1.5s ease-out;"></circle>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="summary" id="summary-text"></div>
+
+            <div class="findings">
+                <div class="flags">
+                    <h3>Anomalies Detected</h3>
+                    <ul id="red-flags-list"></ul>
+                </div>
+                <div class="signs">
+                    <h3>Reassuring Signs</h3>
+                    <ul id="reassuring-signs-list"></ul>
+                </div>
+            </div>
+
+            <div class="frame-strip-container">
+                <h3>Frame Breakdown</h3>
+                <div class="frame-strip" id="frame-strip"></div>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <button onclick="resetApp()">Analyze Another Video</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        RealOrReel uses computer vision and ML heuristics. Results are probabilistic, not definitive. Always think critically.
+    </footer>
+
+    <script>
+        const statusMessages = [
+            "Downloading reel...",
+            "Extracting frames...",
+            "Running FaceMesh analysis...",
+            "Computing texture variance...",
+            "Evaluating CLIP zero-shot parameters...",
+            "Aggregating signals..."
+        ];
+
+        let messageInterval;
+
+        document.getElementById('analyze-btn').addEventListener('click', () => {
+            const url = document.getElementById('video-url').value.trim();
+            if (!url) {
+                showError("Please enter a valid URL.");
+                return;
+            }
+
+            // Start UI state
+            document.getElementById('input-area').style.display = 'none';
+            document.getElementById('results-panel').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
+            
+            const loadingState = document.getElementById('loading-state');
+            loadingState.style.display = 'block';
+            
+            const statusText = document.getElementById('status-text');
+            let msgIdx = 0;
+            statusText.textContent = statusMessages[0];
+            
+            messageInterval = setInterval(() => {
+                msgIdx = (msgIdx + 1) % statusMessages.length;
+                statusText.textContent = statusMessages[msgIdx];
+            }, 3000); // Change message every 3 seconds
+
+            fetch('/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(messageInterval);
+                loadingState.style.display = 'none';
+                
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    renderResults(data);
+                }
+            })
+            .catch(err => {
+                clearInterval(messageInterval);
+                loadingState.style.display = 'none';
+                showError("An error occurred while connecting to the server.");
+                console.error(err);
+            });
+        });
+
+        function showError(msg) {
+            document.getElementById('input-area').style.display = 'block';
+            const errEl = document.getElementById('error-message');
+            errEl.textContent = msg;
+            errEl.style.display = 'block';
+        }
+
+        function resetApp() {
+            document.getElementById('results-panel').style.display = 'none';
+            document.getElementById('input-area').style.display = 'block';
+            document.getElementById('video-url').value = '';
+        }
+
+        function renderResults(data) {
+            document.getElementById('results-panel').style.display = 'block';
+            
+            // Verdict Badge
+            const badge = document.getElementById('verdict-badge');
+            badge.textContent = data.verdict;
+            badge.className = 'verdict-badge'; // reset
+            
+            let color = 'var(--accent-cyan)';
+            if (data.verdict === 'AI Generated') { badge.classList.add('verdict-ai'); color = 'var(--red-alert)'; }
+            else if (data.verdict === 'Likely AI') { badge.classList.add('verdict-likely-ai'); color = 'var(--orange-alert)'; }
+            else if (data.verdict === 'Uncertain') { badge.classList.add('verdict-uncertain'); color = 'var(--yellow-alert)'; }
+            else { badge.classList.add('verdict-real'); color = 'var(--green-alert)'; }
+
+            // Confidence
+            document.getElementById('confidence-val').textContent = data.confidence;
+            const circle = document.getElementById('confidence-circle');
+            circle.style.stroke = color;
+            // Circumference is 2 * pi * 45 ≈ 283
+            const offset = 283 - (283 * data.confidence) / 100;
+            
+            // Small delay to allow CSS transition to kick in
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 100);
+
+            // Summary
+            document.getElementById('summary-text').textContent = data.summary;
+
+            // Flags
+            const redFlagsList = document.getElementById('red-flags-list');
+            redFlagsList.innerHTML = '';
+            if (data.red_flags.length === 0) {
+                redFlagsList.innerHTML = '<li style="color:var(--text-muted)">No major anomalies detected.</li>';
+            } else {
+                data.red_flags.forEach(flag => {
+                    const li = document.createElement('li');
+                    li.textContent = flag;
+                    redFlagsList.appendChild(li);
+                });
+            }
+
+            const signsList = document.getElementById('reassuring-signs-list');
+            signsList.innerHTML = '';
+            if (data.reassuring_signs.length === 0) {
+                signsList.innerHTML = '<li style="color:var(--text-muted)">Minimal natural indicators found.</li>';
+            } else {
+                data.reassuring_signs.forEach(sign => {
+                    const li = document.createElement('li');
+                    li.textContent = sign;
+                    signsList.appendChild(li);
+                });
+            }
+
+            // Frame Strip
+            const frameStrip = document.getElementById('frame-strip');
+            frameStrip.innerHTML = '';
+            
+            data.thumbnails.forEach((thumbBase64, idx) => {
+                const item = document.createElement('div');
+                item.className = 'frame-item';
+                
+                const img = document.createElement('img');
+                img.src = thumbBase64;
+                
+                const scoreOverlay = document.createElement('div');
+                scoreOverlay.className = 'frame-score';
+                scoreOverlay.innerHTML = `Frame ${idx + 1}<br><span style="color:${data.frame_scores[idx] > 60 ? 'var(--red-alert)' : 'var(--accent-cyan)'}">Score: ${data.frame_scores[idx]}</span>`;
+                
+                item.appendChild(img);
+                item.appendChild(scoreOverlay);
+                frameStrip.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>
